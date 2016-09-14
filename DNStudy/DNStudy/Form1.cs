@@ -45,16 +45,14 @@ namespace DNStudy
         public Form1()
         {
             InitializeComponent();
+            CheckForIllegalCrossThreadCalls = false;
             Hand.initMap();
             RegisterHotkey();
             Rectangle rect = new Rectangle();
             rect = Screen.GetWorkingArea(this);
-            Utils.screenWidth = rect.Width;//屏幕宽
-            
-            Utils.screenHeight = rect.Height;//屏幕高
-            if (rect.Width == 1920)
-                Utils.screenHeight = 1200;
-            Console.WriteLine("screen width heigth = " + rect.Width + "," + rect.Height);
+            Utils.screenWidth = Screen.PrimaryScreen.Bounds.Width;//屏幕宽
+            Utils.screenHeight = Screen.PrimaryScreen.Bounds.Height;//屏幕高
+
             Process[] process_osk = Process.GetProcessesByName("osk");
             if (process_osk == null || process_osk.Length == 0)
             {
@@ -104,6 +102,7 @@ namespace DNStudy
         {
             HotKey.UnregisterHotKey(Handle, 0xAAAA);
             HotKey.UnregisterHotKey(Handle, 0xAAAB);
+            isRunning = false;
         }
 
         protected override void WndProc(ref Message m)
@@ -115,15 +114,28 @@ namespace DNStudy
                     switch (m.WParam.ToInt32())
                     {
                         case 0xAAAA:
-                            auto_attack1();
+                            addPoint();
+                            //auto_attack1();
                             break;
                         case 0xAAAB:
-                            moveToDongmeng();
+                            addPointAndColor();
+                            //moveToDongmeng();
                             break;
                     }
                     break;
             }
             base.WndProc(ref m);
+        }
+
+        private void addPointAndColor()
+        {
+            Bitmap bmp = (Bitmap)pictureBox1.Image;
+            bmp.Save(textBox_expect_point.Text + " " + textBox_color.Text + ".bmp");
+        }
+
+        private void addPoint()
+        {
+            textBox1.Text += "mlc " + textBox_expect_point.Text + "\r\n";
         }
 
         private void mouse_test(object p1, object p2)
@@ -151,11 +163,86 @@ namespace DNStudy
             }
 
         }
+        Boolean isRunning = true;
 
         private void button1_Click(object sender, EventArgs e)
         {
-            activityWindows();
-            Hand.osk_clicks("1234567890`asdfghjklpoiuytrewqzxcvbnm");
+            isRunning = true;
+            new Thread(new ThreadStart(getMousePoint)).Start();
+        }
+
+
+        private void button_stop_Click(object sender, EventArgs e)
+        {
+            isRunning = false;
+        }
+        public void getMousePoint()
+        {
+            while (isRunning)
+            {
+                int offsetx = 0, offsety = 0;
+                try
+                {
+                    String[] s = textBox_offset.Text.Split(' ');
+                    offsetx = int.Parse(s[0]);
+                    offsety = int.Parse(s[1]);
+                }
+                catch (System.Exception ex)
+                {
+                	
+                }
+                Point screenPoint = Control.MousePosition;
+                String str = screenPoint.X + " " + screenPoint.Y;
+                int x1 = screenPoint.X;
+                int y1 = screenPoint.Y;
+                textBox_point.Text = str;
+                textBox_expect_point.Text = (x1 - offsetx) + " " + (y1 - offsety);
+                x1 -= 8;
+                y1 -= 8;
+                x1 = x1 <= 0 ? 0 : x1;
+                y1 = y1 <= 0 ? 0 : y1;
+                Bitmap bmp = PicUtils.captureScreen(x1, y1, 17, 17);
+                int scale = 8;
+                Bitmap bmp2 = new Bitmap(bmp.Width * scale, bmp.Height * scale);
+                for (int i = 0; i < bmp.Width; i++)
+                {
+                    for (int j = 0; j < bmp.Height; j++)
+                    {
+                        for (int k = 0; k < scale; k++)
+                        {
+                            for (int l = 0; l < scale; l++)
+                            {
+                                bmp2.SetPixel(i * scale + k, j * scale + l, bmp.GetPixel(i, j));
+                            }
+                        }
+                        if (i == bmp.Width / 2 && j == bmp.Height / 2)
+                        {
+                            for (int k = 0; k < scale; k++)
+                            {
+                                for (int l = 0; l < scale; l++)
+                                {
+                                    if (k == 0 || k == scale - 1 || l == 0 || l == scale - 1)
+                                        bmp2.SetPixel(i * scale + k, j * scale + l, Color.Red);
+                                    else
+                                        bmp2.SetPixel(i * scale + k, j * scale + l, bmp.GetPixel(i, j));
+                                }
+                            }
+                        }
+                    }
+                }
+                Color c = bmp.GetPixel(bmp.Width / 2, bmp.Height / 2);
+                textBox_color.Text = c.Name.Substring(2, 6).ToUpper();
+                pictureBox1.Image = bmp2;
+                Thread.Sleep(100);
+            }
+        }
+
+        private void setText(TextBox textBox, string str)
+        {
+            if (textBox.InvokeRequired)
+            {
+
+            }
         }
 
         private void create_Osk_map()
@@ -249,7 +336,7 @@ namespace DNStudy
             //{
             //    textBox1.Text = "p" + i + " = " + points[i].X + " , " + points[i].Y + "\r\n";
             //}
-            for (int j = 0; j < 10000 ; j++)
+            for (int j = 0; j < 10000; j++)
             {
                 Script script = new Script();
                 script.ScriptStr = "p,,;mlc 420 561;p,,,;mlc 482 668;p,,,;mlc 482 668;p-....;mlc 482 576;p..";
@@ -267,8 +354,8 @@ namespace DNStudy
                 //910,411
                 script.excute();
             }
-            
-            
+
+
         }
 
         private void button6_Click(object sender, EventArgs e)
@@ -319,6 +406,19 @@ namespace DNStudy
                     PicUtils.FindColorFromFile(@"C:\Users\gypc\Pictures\dn\小图\小地图.bmp", rgbs[i], sims[j], "RGB_" + rgbs[i] + sims[j].ToString() + ".bmp");
                 }
             }
+        }
+
+        private void button_execute_Click(object sender, EventArgs e)
+        {
+            Script script = new Script();
+            script.ScriptStr = textBox1.Text;
+            //script.ScriptStr = content;
+            script.excute();
+        }
+
+        private void button_copy_Click(object sender, EventArgs e)
+        {
+            Clipboard.SetText(textBox1.Text);
         }
     }
 }
