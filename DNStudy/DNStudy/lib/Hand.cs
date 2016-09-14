@@ -233,7 +233,7 @@ namespace DNStudy.lib
             
             int x1 = screenPoint.X;
             int y1 = screenPoint.Y;
-            int count=150;
+            int count=30;
             double delx = (double)(x - x1)/count;
             double dely = (double)(y - y1)/count;
             Console.WriteLine(x);
